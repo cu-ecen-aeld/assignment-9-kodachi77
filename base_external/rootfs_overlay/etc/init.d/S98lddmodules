@@ -1,0 +1,186 @@
+#!/bin/sh
+
+
+load_scull_modules() {
+    local module="scull"
+    local device="scull"
+    local mode="664"
+    
+    # Determine group
+    if grep -q '^staff:' /etc/group; then
+        local group="staff"
+    else
+        local group="wheel"
+    fi
+
+    # Load the module
+    insmod /lib/modules/$(uname -r)/extra/$module.ko "$@" || return 1
+
+    # Retrieve major number
+    local major=$(awk "\$2==\"$module\" {print \$1}" /proc/devices)
+
+    # Create device nodes and set permissions
+    local minor_index=0
+
+    for type in "" "pipe"; do
+        # Create four nodes for "" and "pipe"
+        for i in {0..3}; do
+            local node_name="${device}${type}${i}"
+            rm -f /dev/$node_name
+            mknod /dev/$node_name c $major $minor_index
+            chgrp $group /dev/$node_name
+            chmod $mode /dev/$node_name
+            minor_index=$((minor_index + 1))
+        done
+
+        # Create symlink for the first device of each type
+        ln -sf ${device}${type}0 /dev/${device}${type}
+    done
+
+    # Create single node types
+    for type in "single" "uid" "wuid" "priv"; do
+        local node_name="${device}${type}"
+        rm -f /dev/$node_name
+        mknod /dev/$node_name c $major $minor_index
+        chgrp $group /dev/$node_name
+        chmod $mode /dev/$node_name
+        minor_index=$((minor_index + 1))
+    done
+}
+
+
+unload_scull_modules() {
+    local module="scull"
+    local device="scull"
+
+    # Invoke rmmod with all arguments provided
+    rmmod $module "$@" || return 1
+
+    # Remove stale nodes
+    rm -f /dev/${device}
+
+    # Use a loop to remove device nodes
+    for i in {0..3}; do
+        rm -f /dev/${device}${i}
+        rm -f /dev/${device}pipe${i}
+    done
+
+    # Remove single and other specific nodes
+    for type in "single" "uid" "wuid" "priv"; do
+	rm -f /dev/${device}${type}
+    done
+}
+
+load_faulty_module() {
+    local module="faulty"
+    local device="faulty"
+    local mode="664"
+    
+    # Determine group
+    if grep -q '^staff:' /etc/group; then
+        local group="staff"
+    else
+        local group="wheel"
+    fi
+
+    # Load the module
+    
+    insmod /lib/modules/$(uname -r)/extra/$module.ko "$@" || return 1
+
+    # Retrieve major number
+    local major=$(awk "\$2==\"$module\" {print \$1}" /proc/devices)
+
+    local node_name="${device}faulty"
+    rm -f /dev/$node_name
+    mknod /dev/$node_name c $major 0
+    chgrp $group /dev/$node_name
+    chmod $mode /dev/$node_name
+}
+
+
+function unload_faulty_module() {
+    local module="faulty"
+    local device="faulty"
+
+    rmmod $module "$@" || return 1
+    rm -f /dev/${device}
+}
+
+status_of_module() {
+    local module="$1"
+
+    # Check if the module is loaded
+    if lsmod | grep -q "^$module "; then
+        echo "$module is running."
+        return 0
+    else
+        echo "$module is not running."
+        return 1
+    fi
+}
+
+if [ -e /lib/lsb/init-functions ]; then
+    . /lib/lsb/init-functions
+else
+
+    # Buildroot doesn't have lsb-base so we will emulate it
+
+    log_daemon_msg() {
+        echo "$1"
+    }
+
+    log_end_msg() {
+        if [ "$1" -eq 0 ]; then
+            echo " [ OK ]"
+        else
+            echo " [ FAIL ]"
+        fi
+    }
+fi
+
+case "$1" in
+    start)
+        log_daemon_msg "Loading scull modules..."
+	load_scull_modules
+	log_end_msg $?
+
+	log_daemon_msg "Loading faulty module..."
+	load_faulty_module
+        log_end_msg $?
+
+
+	log_daemon_msg "Loading hello module..."
+        insmod /lib/modules/$(uname -r)/extra/hello.ko || exit 1
+
+        ;;
+
+    stop)
+	log_daemon_msg "Unloading hello module..."
+	 rmmod /lib/modules/$(uname -r)/extra/hello.ko || exit 1
+
+	log_daemon_msg "Unloading faulty module..."
+	unload_faulty_module
+        log_end_msg $?
+
+        log_daemon_msg "Unloading scull modules..."
+	unload_scull_modules
+	log_end_msg $?
+
+        ;;
+
+    restart)
+        $0 stop
+        $0 start
+        ;;
+
+    status)
+	status_of_module "hello"
+	status_of_module "scull"
+	;;
+    *)
+        echo "Usage: $0 {start|stop|restart|status}"
+        exit 1
+        ;;
+esac
+
+exit 0
