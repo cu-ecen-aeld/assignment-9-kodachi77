@@ -8,7 +8,7 @@
 
 
 LDD_LICENSE = BSD GPL-2.0
-LDD_VERSION = '3a38e2c5c6321ef860323ac9e86fe9f4ce027bb0'
+LDD_VERSION = 'e54eea8db01f2c0bf95fa8e3eb985932e8cdb9fa'
 LDD_SITE = 'git@github.com:cu-ecen-aeld/assignment-7-kodachi77.git'
 LDD_SITE_METHOD = git
 LDD_GIT_SUBMODULES = YES
