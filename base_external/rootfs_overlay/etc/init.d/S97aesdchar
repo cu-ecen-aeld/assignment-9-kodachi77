@@ -1,0 +1,97 @@
+#!/bin/sh
+
+
+load_module() {
+    local module="$1"
+    local device="$1"
+    local mode="664"
+    
+    # Determine group
+    if grep -q '^staff:' /etc/group; then
+        local group="staff"
+    else
+        local group="wheel"
+    fi
+
+    # Load the module
+    
+    insmod /lib/modules/$(uname -r)/extra/$module.ko "$@" || return 1
+
+    # Retrieve major number
+    local major=$(awk "\$2==\"$module\" {print \$1}" /proc/devices)
+
+    rm -f /dev/$device
+    mknod /dev/$device c $major 0
+    chgrp $group /dev/$device
+    chmod $mode /dev/$device
+}
+
+
+function unload_module() {
+    local module="$1"
+    local device="$1"
+
+    rmmod $module "$@" || return 1
+    rm -f /dev/$device
+}
+
+status_of_module() {
+    local module="$1"
+
+    # Check if the module is loaded
+    if lsmod | grep -q "^$module "; then
+        echo "$module is running."
+        return 0
+    else
+        echo "$module is not running."
+        return 1
+    fi
+}
+
+if [ -e /lib/lsb/init-functions ]; then
+    . /lib/lsb/init-functions
+else
+
+    # Buildroot doesn't have lsb-base so we will emulate it
+
+    log_daemon_msg() {
+        echo "$1"
+    }
+
+    log_end_msg() {
+        if [ "$1" -eq 0 ]; then
+            echo " [ OK ]"
+        else
+            echo " [ FAIL ]"
+        fi
+    }
+fi
+
+case "$1" in
+    start)
+	log_daemon_msg "Loading aesdchar module..."
+	load_module "aesdchar"
+        log_end_msg $?
+        ;;
+
+    stop)
+	log_daemon_msg "Unloading aesdchar module..."
+	unload_module "aesdchar"
+        log_end_msg $?
+        ;;
+
+    restart)
+        $0 stop
+        $0 start
+        ;;
+
+    status)
+	status_of_module "aesdchar"
+	;;
+    *)
+        echo "Usage: $0 {start|stop|restart|status}"
+        exit 1
+        ;;
+esac
+
+exit 0
