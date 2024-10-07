@@ -15,7 +15,6 @@ jobs:
             with:
                 submodules: true
                 fetch-depth: 0
-          - name: Checkout submodules
           - uses: webfactory/ssh-agent@v0.5.3
             with:
                 ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
