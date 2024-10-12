@@ -6,7 +6,7 @@
 ##############################################################
 
 AESD_CHAR_DRIVER_LICENSE = BSD GPL-2.0
-AESD_CHAR_DRIVER_VERSION = d4239801ad240c2adb8fd9ccf8f6cd2e0838b3c7
+AESD_CHAR_DRIVER_VERSION = 936de71f3600735e599eda819d6fa2eff04e0ae3
 AESD_CHAR_DRIVER_SITE = git@github.com:cu-ecen-aeld/assignments-3-and-later-kodachi77.git
 AESD_CHAR_DRIVER_SITE_METHOD = git
 AESD_CHAR_DRIVER_SITE_BRANCH = master
